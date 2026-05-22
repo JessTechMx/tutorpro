@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}TutorPro{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="/static/css/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <span class="logo-mark">T</span>
+      <span class="logo-text">TutorPro</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="/#cursos" class="nav-link">Cursos</a>
+      <a href="/#contacto" class="nav-link">Contacto</a>
+      <div id="navAuth" class="nav-auth">
+        <a href="/login" class="btn-nav-outline">Iniciar sesión</a>
+        <a href="/register" class="btn-nav-solid">Registrarse</a>
+      </div>
+      <div id="navUser" class="nav-user" style="display:none">
+        <a href="/dashboard" class="btn-nav-outline">
+          <i class="ti ti-layout-dashboard"></i> Mi panel
+        </a>
+        <div class="avatar-btn" id="avatarBtn">
+          <span id="avatarInitials">??</span>
+        </div>
+        <div class="avatar-menu" id="avatarMenu">
+          <span class="avatar-name" id="avatarName"></span>
+          <a href="/dashboard">Mi panel</a>
+          <a href="#" onclick="logout()">Cerrar sesión</a>
+        </div>
+      </div>
+    </div>
+    <button class="nav-hamburger" id="hamburger" onclick="toggleMenu()">
+      <i class="ti ti-menu-2"></i>
+    </button>
+  </div>
+</nav>
+
+{% block content %}{% endblock %}
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="logo-mark small">T</span>
+      <span class="footer-title">TutorPro</span>
+    </div>
+    <p class="footer-copy">Clases particulares de Robótica y Python · Ing. Jesús Aguilar Núñez</p>
+  </div>
+</footer>
+
+<script>
+async function checkSession() {
+  const res = await fetch('/api/me');
+  const data = await res.json();
+  if (data.logged_in) {
+    document.getElementById('navAuth').style.display = 'none';
+    document.getElementById('navUser').style.display = 'flex';
+    document.getElementById('avatarInitials').textContent = data.initials;
+    document.getElementById('avatarName').textContent = data.name;
+    window._currentUser = data;
+  }
+}
+
+function logout() {
+  window.location.href = '/logout';
+}
+
+function toggleMenu() {
+  document.getElementById('navLinks').classList.toggle('open');
+}
+
+document.getElementById('avatarBtn')?.addEventListener('click', () => {
+  document.getElementById('avatarMenu').classList.toggle('show');
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#avatarBtn') && !e.target.closest('#avatarMenu')) {
+    document.getElementById('avatarMenu')?.classList.remove('show');
+  }
+});
+
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
+});
+
+checkSession();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

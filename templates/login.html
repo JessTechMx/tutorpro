@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión — TutorPro{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo"><span class="logo-mark">T</span></div>
+    <h1 class="auth-title">Bienvenido de nuevo</h1>
+    <p class="auth-sub">Inicia sesión para continuar</p>
+    <div id="authError" class="auth-error" style="display:none"></div>
+    <div class="form-group">
+      <label>Correo electrónico</label>
+      <input type="email" id="email" class="form-input" placeholder="tu@correo.com" onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" id="password" class="form-input" placeholder="••••••••" onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="btn-primary-sm full-width" onclick="doLogin()">
+      Iniciar sesión <i class="ti ti-arrow-right"></i>
+    </button>
+    <p class="auth-switch">¿No tienes cuenta? <a href="/register">Regístrate aquí</a></p>
+    <div class="auth-hint">
+      <small>Demo: <strong>admin@tutorpro.com</strong> / <strong>admin123</strong></small>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function doLogin() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const res = await fetch('/login', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({email, password})
+  });
+  const data = await res.json();
+  if (data.success) {
+    window.location.href = data.role === 'admin' ? '/admin' : '/dashboard';
+  } else {
+    const err = document.getElementById('authError');
+    err.textContent = data.error || 'Credenciales incorrectas';
+    err.style.display = 'block';
+  }
+}
+</script>
+{% endblock %}

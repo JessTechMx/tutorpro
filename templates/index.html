@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}TutorPro — Clases Particulares de Programación{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+  <div class="hero-bg">
+    <div class="hero-grid"></div>
+    <div class="hero-glow"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <i class="ti ti-sparkles"></i> Clases particulares personalizadas
+    </div>
+    <h1 class="hero-title">
+      Aprende <span class="hero-accent">Python</span><br>
+      y Robótica
+    </h1>
+    <p class="hero-sub">
+      Cursos diseñados para secundaria y nivel avanzado,<br>
+      con seguimiento personalizado y proyectos reales.
+    </p>
+    <div class="hero-actions">
+      <a href="#cursos" class="btn-primary-lg">
+        Ver cursos <i class="ti ti-arrow-right"></i>
+      </a>
+      <a href="/register" class="btn-ghost-lg">
+        Crear cuenta gratis
+      </a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <span class="stat-n">10+</span>
+        <span class="stat-l">Años de experiencia</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <span class="stat-n">100%</span>
+        <span class="stat-l">Personalizado</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <span class="stat-n">IA</span>
+        <span class="stat-l">Revisión automática</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="code-card">
+      <div class="code-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="code-file">main.py</span>
+      </div>
+      <pre class="code-block"><span class="kw">class</span> <span class="cl">Estudiante</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, nombre):
+        self.nombre = nombre
+        self.progreso = <span class="nm">0</span>
+
+    <span class="kw">def</span> <span class="fn">aprender</span>(self, tema):
+        self.progreso += <span class="nm">10</span>
+        <span class="kw">print</span>(<span class="st">f"¡{self.nombre}</span>
+<span class="st">        domina {tema}!"</span>)
+
+alumno = <span class="cl">Estudiante</span>(<span class="st">"Ana"</span>)
+alumno.aprender(<span class="st">"POO"</span>)
+<span class="cm"># ¡Ana domina POO!</span></pre>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="cursos">
+  <div class="section-inner">
+    <div class="section-header">
+      <span class="section-tag">Oferta educativa</span>
+      <h2 class="section-title">Cursos disponibles</h2>
+      <p class="section-sub">Aprende a tu ritmo con materiales de calidad y retroalimentación inmediata</p>
+    </div>
+    <div class="courses-grid" id="coursesGrid">
+      <div class="course-skeleton"></div>
+      <div class="course-skeleton"></div>
+      <div class="course-skeleton"></div>
+    </div>
+  </div>
+</section>
+
+<section class="features-section">
+  <div class="section-inner">
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon blue"><i class="ti ti-robot"></i></div>
+        <h3>Revisión con IA</h3>
+        <p>Tus ejercicios de código se revisan automáticamente con retroalimentación personalizada al instante.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon teal"><i class="ti ti-chart-line"></i></div>
+        <h3>Seguimiento real</h3>
+        <p>Consulta tu progreso por módulo, calificaciones y actividades pendientes desde tu panel personal.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon purple"><i class="ti ti-files"></i></div>
+        <h3>Materiales ricos</h3>
+        <p>PDFs, código, videos y recursos descargables organizados por módulo para estudiar cuando quieras.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon orange"><i class="ti ti-messages"></i></div>
+        <h3>Chat directo</h3>
+        <p>Comunícate con el maestro y resuelve dudas en tiempo real desde la plataforma.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-section" id="contacto">
+  <div class="cta-inner">
+    <h2>¿Listo para comenzar?</h2>
+    <p>Crea tu cuenta gratuita y accede a los cursos disponibles hoy mismo.</p>
+    <a href="/register" class="btn-primary-lg">
+      Comenzar ahora <i class="ti ti-arrow-right"></i>
+    </a>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadCourses() {
+  const res = await fetch('/api/courses');
+  const courses = await res.json();
+  const grid = document.getElementById('coursesGrid');
+
+  if (!courses.length) {
+    grid.innerHTML = '<p class="empty-msg">Próximamente nuevos cursos.</p>';
+    return;
+  }
+
+  const colorMap = {
+    blue: '#2563eb', teal: '#0d9488', purple: '#7c3aed',
+    orange: '#ea580c', green: '#16a34a', red: '#dc2626'
+  };
+
+  grid.innerHTML = courses.map(c => `
+    <div class="course-card" data-color="${c.color}">
+      <div class="course-card-top" style="background: ${colorMap[c.color] || '#2563eb'}15; border-bottom: 1px solid ${colorMap[c.color] || '#2563eb'}25">
+        <div class="course-icon" style="background:${colorMap[c.color] || '#2563eb'}; color:#fff">
+          <i class="ti ${c.icon}"></i>
+        </div>
+        <span class="course-level">${c.level}</span>
+      </div>
+      <div class="course-card-body">
+        <h3 class="course-title">${c.title}</h3>
+        <p class="course-desc">${c.description}</p>
+        <div class="course-meta">
+          <span><i class="ti ti-clock"></i> ${c.duration}</span>
+          <span><i class="ti ti-users"></i> ${c.students} alumnos</span>
+        </div>
+        <div class="course-footer">
+          <span class="course-price">${c.price > 0 ? '$' + c.price.toLocaleString('es-MX') + ' MXN' : 'Gratuito'}</span>
+          <button class="btn-enroll" onclick="enrollCourse(${c.id}, this)">
+            Inscribirme <i class="ti ti-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function enrollCourse(id, btn) {
+  const me = await fetch('/api/me').then(r=>r.json());
+  if (!me.logged_in) {
+    window.location.href = '/login';
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader ti-spin"></i>';
+  const res = await fetch(`/api/courses/${id}/enroll`, {method:'POST'});
+  const data = await res.json();
+  if (data.success) {
+    btn.innerHTML = '<i class="ti ti-check"></i> Inscrito';
+    btn.classList.add('enrolled');
+    setTimeout(() => window.location.href = '/dashboard', 800);
+  } else {
+    btn.innerHTML = data.error || 'Error';
+    btn.disabled = false;
+  }
+}
+
+loadCourses();
+</script>
+{% endblock %}

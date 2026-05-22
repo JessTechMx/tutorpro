@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+{% block title %}Panel Maestro — TutorPro{% endblock %}
+
+{% block content %}
+<div class="dash-layout">
+  <aside class="dash-sidebar admin-sidebar">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar admin-av">JA</div>
+      <div>
+        <div class="sidebar-name">Ing. Jesús Aguilar</div>
+        <div class="sidebar-role admin-role">Maestro</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="sidebar-link active" data-tab="overview" onclick="switchTab('overview',this)">
+        <i class="ti ti-layout-dashboard"></i> Resumen
+      </a>
+      <a href="#" class="sidebar-link" data-tab="students" onclick="switchTab('students',this)">
+        <i class="ti ti-users"></i> Alumnos
+      </a>
+      <a href="#" class="sidebar-link" data-tab="courses" onclick="switchTab('courses',this)">
+        <i class="ti ti-books"></i> Cursos
+      </a>
+      <a href="#" class="sidebar-link" data-tab="materials" onclick="switchTab('materials',this)">
+        <i class="ti ti-upload"></i> Materiales
+      </a>
+      <a href="#" class="sidebar-link" data-tab="chat" onclick="switchTab('chat',this)">
+        <i class="ti ti-messages"></i> Chat
+        <span class="badge-unread" id="unreadBadge" style="display:none"></span>
+      </a>
+    </nav>
+    <a href="/logout" class="sidebar-logout"><i class="ti ti-logout"></i> Salir</a>
+  </aside>
+
+  <main class="dash-main">
+
+    <!-- RESUMEN -->
+    <div class="tab-panel active" id="tab-overview">
+      <div class="dash-header"><h1 class="dash-title">Resumen</h1></div>
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card"><i class="ti ti-users"></i><span class="sc-n" id="sc-students">—</span><span class="sc-l">Alumnos</span></div>
+        <div class="stat-card"><i class="ti ti-books"></i><span class="sc-n" id="sc-courses">—</span><span class="sc-l">Cursos</span></div>
+        <div class="stat-card"><i class="ti ti-file-check"></i><span class="sc-n" id="sc-submissions">{{ total_submissions }}</span><span class="sc-l">Entregas</span></div>
+      </div>
+      <div class="dash-header" style="margin-top:2rem">
+        <h2 class="dash-sub-title">Actividad reciente de alumnos</h2>
+      </div>
+      <div id="studentsSummary">
+        <div class="loading-spin"><i class="ti ti-loader ti-spin"></i></div>
+      </div>
+    </div>
+
+    <!-- ALUMNOS -->
+    <div class="tab-panel" id="tab-students">
+      <div class="dash-header">
+        <h1 class="dash-title">Alumnos</h1>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="studentsTable">
+          <thead>
+            <tr>
+              <th>Alumno</th><th>Correo</th><th>Cursos</th><th>Entregas</th><th>Promedio</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="studentsBody">
+            <tr><td colspan="6" class="table-loading"><i class="ti ti-loader ti-spin"></i></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CURSOS -->
+    <div class="tab-panel" id="tab-courses">
+      <div class="dash-header">
+        <h1 class="dash-title">Cursos</h1>
+        <button class="btn-sm-solid" onclick="openCourseModal()">
+          <i class="ti ti-plus"></i> Nuevo curso
+        </button>
+      </div>
+      <div id="adminCoursesList">
+        <div class="loading-spin"><i class="ti ti-loader ti-spin"></i></div>
+      </div>
+    </div>
+
+    <!-- MATERIALES -->
+    <div class="tab-panel" id="tab-materials">
+      <div class="dash-header">
+        <h1 class="dash-title">Subir materiales</h1>
+      </div>
+      <div class="upload-area">
+        <label class="select-label">Seleccionar módulo:</label>
+        <select id="moduleSelect" class="form-select">
+          <option value="">— Elige un módulo —</option>
+        </select>
+        <label class="select-label" style="margin-top:1rem">Título del material:</label>
+        <input type="text" id="materialTitle" class="form-input" placeholder="Ej: Introducción a las clases">
+        <div class="drop-zone" id="dropZone">
+          <i class="ti ti-upload"></i>
+          <p>Arrastra un archivo aquí o haz clic para seleccionar</p>
+          <small>PDF, DOCX, PPTX, PY, JPG, MP4 · Máx. 16MB</small>
+          <input type="file" id="fileInput" hidden accept=".pdf,.docx,.pptx,.py,.txt,.jpg,.jpeg,.png,.mp4" onchange="handleFileSelect(this)">
+        </div>
+        <div id="uploadStatus"></div>
+      </div>
+    </div>
+
+    <!-- CHAT ADMIN -->
+    <div class="tab-panel" id="tab-chat">
+      <div class="dash-header"><h1 class="dash-title">Chat con alumnos</h1></div>
+      <div class="chat-layout">
+        <div class="chat-contacts" id="chatContacts">
+          <div class="chat-contacts-title">Alumnos y padres</div>
+        </div>
+        <div class="chat-window" id="chatWindow">
+          <div class="chat-empty"><i class="ti ti-message-circle"></i><p>Selecciona un contacto</p></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL NUEVO CURSO -->
+<div class="modal-overlay" id="courseModal" style="display:none">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeCourseModal()"><i class="ti ti-x"></i></button>
+    <h2 class="modal-title" id="courseModalTitle">Nuevo curso</h2>
+    <div class="form-group">
+      <label>Título</label>
+      <input type="text" id="cTitle" class="form-input" placeholder="Ej: Python para principiantes">
+    </div>
+    <div class="form-group">
+      <label>Descripción</label>
+      <textarea id="cDesc" class="form-input" rows="3" placeholder="Describe brevemente el curso"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nivel</label>
+        <select id="cLevel" class="form-select">
+          <option>Básico</option><option>Intermedio</option><option>Avanzado</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Duración</label>
+        <input type="text" id="cDuration" class="form-input" placeholder="Ej: 8 semanas">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Precio (MXN)</label>
+        <input type="number" id="cPrice" class="form-input" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Ícono (Tabler)</label>
+        <input type="text" id="cIcon" class="form-input" placeholder="ti-brand-python" value="ti-code">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="cPublished"> Publicar en página principal
+      </label>
+    </div>
+    <button class="btn-primary-sm full-width" onclick="saveCourse()">
+      <i class="ti ti-check"></i> Guardar curso
+    </button>
+  </div>
+</div>
+
+<!-- MODAL PROGRESO ALUMNO -->
+<div class="modal-overlay" id="progressModal" style="display:none">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('progressModal').style.display='none'"><i class="ti ti-x"></i></button>
+    <h2 class="modal-title" id="progressModalTitle">Progreso</h2>
+    <div id="progressModalContent"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentChatContact = null;
+let chatPollInterval = null;
+let editingCourseId = null;
+
+async function init() {
+  loadStudents();
+  loadAdminCourses();
+  loadModulesForUpload();
+  loadChatContacts();
+  checkUnread();
+  setInterval(checkUnread, 10000);
+  // stats
+  const students = await fetch('/api/students').then(r=>r.json());
+  const courses = await fetch('/api/courses').then(r=>r.json());
+  document.getElementById('sc-students').textContent = students.length;
+  document.getElementById('sc-courses').textContent = courses.length;
+  // resumen
+  const html = students.slice(0,6).map(s => `
+    <div class="student-summary-row">
+      <div class="stu-av">${s.initials}</div>
+      <div class="stu-info">
+        <div class="stu-name">${s.name}</div>
+        <div class="stu-email">${s.email}</div>
+      </div>
+      <div class="stu-chips">
+        <span class="chip">${s.enrolled} cursos</span>
+        <span class="chip">${s.submissions} entregas</span>
+        ${s.avg_score !== null ? `<span class="chip score">${s.avg_score} pts</span>` : ''}
+      </div>
+    </div>`).join('');
+  document.getElementById('studentsSummary').innerHTML = html || '<p class="empty-state">Sin alumnos aún.</p>';
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+}
+
+async function loadStudents() {
+  const students = await fetch('/api/students').then(r=>r.json());
+  const tbody = document.getElementById('studentsBody');
+  if (!students.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Sin alumnos registrados</td></tr>';
+    return;
+  }
+  tbody.innerHTML = students.map(s => `
+    <tr>
+      <td><div class="stu-cell"><div class="stu-av sm">${s.initials}</div><span>${s.name}</span></div></td>
+      <td class="muted">${s.email}</td>
+      <td>${s.enrolled}</td>
+      <td>${s.submissions}</td>
+      <td>${s.avg_score !== null ? s.avg_score + ' pts' : '—'}</td>
+      <td>
+        <button class="table-btn" onclick="viewProgress(${s.id},'${s.name}')">
+          <i class="ti ti-chart-bar"></i> Ver progreso
+        </button>
+      </td>
+    </tr>`).join('');
+}
+
+async function viewProgress(sid, name) {
+  document.getElementById('progressModal').style.display = 'flex';
+  document.getElementById('progressModalTitle').textContent = 'Progreso de ' + name;
+  document.getElementById('progressModalContent').innerHTML = '<div class="loading-spin"><i class="ti ti-loader ti-spin"></i></div>';
+  const data = await fetch(`/api/students/${sid}/progress`).then(r=>r.json());
+  if (!data.courses.length) {
+    document.getElementById('progressModalContent').innerHTML = '<p class="empty-state">Sin cursos inscritos.</p>';
+    return;
+  }
+  let html = data.courses.map(c => `
+    <div class="progress-item">
+      <div class="pi-header">
+        <span class="pi-course">${c.course}</span>
+        <span class="pi-count">${c.submitted}/${c.total} actividades</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill admin" style="width:${c.progress}%"></div>
+      </div>
+      <div class="pi-pct">${c.progress}%</div>
+    </div>`).join('');
+  document.getElementById('progressModalContent').innerHTML = html;
+}
+
+async function loadAdminCourses() {
+  const res = await fetch('/api/courses');
+  const courses = await res.json();
+  const all = await fetch('/api/courses').then(r=>r.json()); // published only
+  const el = document.getElementById('adminCoursesList');
+  if (!courses.length) {
+    el.innerHTML = '<p class="empty-state">Sin cursos aún. Crea el primero.</p>';
+    return;
+  }
+  el.innerHTML = courses.map(c => `
+    <div class="admin-course-row">
+      <div class="acr-icon"><i class="ti ${c.icon}"></i></div>
+      <div class="acr-info">
+        <div class="acr-title">${c.title}</div>
+        <div class="acr-meta">${c.level} · ${c.duration} · ${c.students} alumnos</div>
+      </div>
+      <div class="acr-actions">
+        <button class="table-btn" onclick="deleteCourse(${c.id})">
+          <i class="ti ti-trash"></i>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+function openCourseModal() {
+  editingCourseId = null;
+  document.getElementById('courseModalTitle').textContent = 'Nuevo curso';
+  document.getElementById('cTitle').value = '';
+  document.getElementById('cDesc').value = '';
+  document.getElementById('cLevel').value = 'Básico';
+  document.getElementById('cDuration').value = '';
+  document.getElementById('cPrice').value = '';
+  document.getElementById('cIcon').value = 'ti-code';
+  document.getElementById('cPublished').checked = false;
+  document.getElementById('courseModal').style.display = 'flex';
+}
+function closeCourseModal() {
+  document.getElementById('courseModal').style.display = 'none';
+}
+
+async function saveCourse() {
+  const data = {
+    title: document.getElementById('cTitle').value,
+    description: document.getElementById('cDesc').value,
+    level: document.getElementById('cLevel').value,
+    duration: document.getElementById('cDuration').value,
+    price: parseFloat(document.getElementById('cPrice').value) || 0,
+    icon: document.getElementById('cIcon').value,
+    is_published: document.getElementById('cPublished').checked
+  };
+  const res = await fetch('/api/courses', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  });
+  const result = await res.json();
+  if (result.success) {
+    closeCourseModal();
+    loadAdminCourses();
+  }
+}
+
+async function deleteCourse(id) {
+  if (!confirm('¿Eliminar este curso? Se borrarán todos sus módulos y actividades.')) return;
+  await fetch(`/api/courses/${id}`, {method:'DELETE'});
+  loadAdminCourses();
+}
+
+// ── MATERIALES ──
+
+async function loadModulesForUpload() {
+  const res = await fetch('/api/courses');
+  const courses = await res.json();
+  const sel = document.getElementById('moduleSelect');
+  for (const c of courses) {
+    const mres = await fetch(`/api/courses/${c.id}/modules`);
+    const modules = await mres.json();
+    modules.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${c.title} › ${m.title}`;
+      sel.appendChild(opt);
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('dropZone');
+  dz?.addEventListener('click', () => document.getElementById('fileInput').click());
+  dz?.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz?.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz?.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) uploadFile(file);
+  });
+});
+
+function handleFileSelect(input) {
+  if (input.files[0]) uploadFile(input.files[0]);
+}
+
+async function uploadFile(file) {
+  const moduleId = document.getElementById('moduleSelect').value;
+  const title = document.getElementById('materialTitle').value || file.name;
+  if (!moduleId) { alert('Selecciona un módulo primero.'); return; }
+  const status = document.getElementById('uploadStatus');
+  status.innerHTML = '<div class="upload-progress"><i class="ti ti-loader ti-spin"></i> Subiendo...</div>';
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('module_id', moduleId);
+  formData.append('title', title);
+  const res = await fetch('/api/materials/upload', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.success) {
+    status.innerHTML = `<div class="upload-ok"><i class="ti ti-circle-check"></i> Material subido: <a href="${data.path}" target="_blank">${title}</a></div>`;
+    document.getElementById('materialTitle').value = '';
+  } else {
+    status.innerHTML = `<div class="upload-err"><i class="ti ti-alert-circle"></i> ${data.error}</div>`;
+  }
+}
+
+// ── CHAT ADMIN ──
+
+async function loadChatContacts() {
+  const res = await fetch('/api/chat/contacts');
+  const contacts = await res.json();
+  const el = document.getElementById('chatContacts');
+  el.innerHTML = '<div class="chat-contacts-title">Alumnos y padres</div>';
+  contacts.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'chat-contact';
+    div.dataset.id = c.id;
+    div.innerHTML = `<div class="chat-avatar">${c.initials}</div>
+      <div class="chat-contact-info">
+        <div class="chat-contact-name">${c.name}</div>
+        <div class="chat-contact-role">${c.role === 'student' ? 'Alumno' : 'Padre/Tutor'}</div>
+      </div>`;
+    div.onclick = () => openChat(c.id, c.name, c.initials, div);
+    el.appendChild(div);
+  });
+}
+
+async function openChat(userId, name, initials, el) {
+  document.querySelectorAll('.chat-contact').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentChatContact = userId;
+  if (chatPollInterval) clearInterval(chatPollInterval);
+  const win = document.getElementById('chatWindow');
+  win.innerHTML = `
+    <div class="chat-win-header">
+      <div class="chat-avatar sm">${initials}</div>
+      <div><strong>${name}</strong></div>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter') sendMsg()">
+      <button class="chat-send-btn" onclick="sendMsg()"><i class="ti ti-send"></i></button>
+    </div>`;
+  loadMessages(userId);
+  chatPollInterval = setInterval(() => loadMessages(userId), 5000);
+}
+
+async function loadMessages(userId) {
+  const res = await fetch(`/api/chat/messages/${userId}`);
+  const messages = await res.json();
+  const el = document.getElementById('chatMessages');
+  if (!el) return;
+  el.innerHTML = messages.map(m => `
+    <div class="chat-msg ${m.is_mine ? 'mine' : 'theirs'}">
+      <div class="chat-bubble">${m.message}</div>
+      <div class="chat-time">${m.sent_at}</div>
+    </div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendMsg() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg || !currentChatContact) return;
+  input.value = '';
+  await fetch('/api/chat/send', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({recipient_id: currentChatContact, message: msg})
+  });
+  loadMessages(currentChatContact);
+}
+
+async function checkUnread() {
+  const res = await fetch('/api/chat/unread');
+  const data = await res.json();
+  const badge = document.getElementById('unreadBadge');
+  badge.style.display = data.count > 0 ? 'inline' : 'none';
+  badge.textContent = data.count;
+}
+
+init();
+</script>
+{% endblock %}

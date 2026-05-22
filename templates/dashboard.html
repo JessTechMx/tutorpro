@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% block title %}Mi Panel — TutorPro{% endblock %}
+
+{% block content %}
+<div class="dash-layout">
+  <aside class="dash-sidebar" id="sidebar">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sidebarAvatar">??</div>
+      <div>
+        <div class="sidebar-name" id="sidebarName">Cargando...</div>
+        <div class="sidebar-role">Alumno</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="sidebar-link active" data-tab="cursos" onclick="switchTab('cursos',this)">
+        <i class="ti ti-book-2"></i> Mis cursos
+      </a>
+      <a href="#" class="sidebar-link" data-tab="actividades" onclick="switchTab('actividades',this)">
+        <i class="ti ti-checklist"></i> Actividades
+      </a>
+      <a href="#" class="sidebar-link" data-tab="materiales" onclick="switchTab('materiales',this)">
+        <i class="ti ti-files"></i> Materiales
+      </a>
+      <a href="#" class="sidebar-link" data-tab="chat" onclick="switchTab('chat',this)">
+        <i class="ti ti-messages"></i> Chat
+        <span class="badge-unread" id="unreadBadge" style="display:none"></span>
+      </a>
+    </nav>
+    <a href="/logout" class="sidebar-logout">
+      <i class="ti ti-logout"></i> Salir
+    </a>
+  </aside>
+
+  <main class="dash-main">
+    <!-- TAB: CURSOS -->
+    <div class="tab-panel active" id="tab-cursos">
+      <div class="dash-header">
+        <h1 class="dash-title">Mis cursos</h1>
+        <a href="/#cursos" class="btn-sm-outline">
+          <i class="ti ti-plus"></i> Explorar más
+        </a>
+      </div>
+      <div class="my-courses-grid" id="myCoursesGrid">
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+      </div>
+    </div>
+
+    <!-- TAB: ACTIVIDADES -->
+    <div class="tab-panel" id="tab-actividades">
+      <div class="dash-header">
+        <h1 class="dash-title">Actividades</h1>
+      </div>
+      <div id="activitiesList">
+        <p class="empty-state"><i class="ti ti-inbox"></i><br>Selecciona un curso para ver sus actividades</p>
+      </div>
+    </div>
+
+    <!-- TAB: MATERIALES -->
+    <div class="tab-panel" id="tab-materiales">
+      <div class="dash-header">
+        <h1 class="dash-title">Materiales de apoyo</h1>
+      </div>
+      <div id="materialsList">
+        <p class="empty-state"><i class="ti ti-folder-open"></i><br>Los materiales aparecerán aquí</p>
+      </div>
+    </div>
+
+    <!-- TAB: CHAT -->
+    <div class="tab-panel" id="tab-chat">
+      <div class="dash-header">
+        <h1 class="dash-title">Chat</h1>
+      </div>
+      <div class="chat-layout">
+        <div class="chat-contacts" id="chatContacts">
+          <div class="chat-contacts-title">Contactos</div>
+        </div>
+        <div class="chat-window" id="chatWindow">
+          <div class="chat-empty">
+            <i class="ti ti-message-circle"></i>
+            <p>Selecciona un contacto para comenzar</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL ACTIVIDAD -->
+<div class="modal-overlay" id="activityModal" style="display:none">
+  <div class="modal-box" id="activityModalBox">
+    <button class="modal-close" onclick="closeActivityModal()"><i class="ti ti-x"></i></button>
+    <div id="activityModalContent"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentUser = null;
+let currentChatContact = null;
+let chatPollInterval = null;
+
+async function init() {
+  const res = await fetch('/api/me');
+  currentUser = await res.json();
+  if (!currentUser.logged_in) { window.location.href = '/login'; return; }
+  document.getElementById('sidebarAvatar').textContent = currentUser.initials;
+  document.getElementById('sidebarName').textContent = currentUser.name;
+  loadMyCourses();
+  loadChatContacts();
+  checkUnread();
+  setInterval(checkUnread, 15000);
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+  if (tab === 'chat') checkUnread();
+}
+
+async function loadMyCourses() {
+  const res = await fetch('/api/my-courses');
+  const courses = await res.json();
+  const grid = document.getElementById('myCoursesGrid');
+  if (!courses.length) {
+    grid.innerHTML = '<div class="empty-card"><i class="ti ti-book-off"></i><p>Aún no estás inscrito en ningún curso.</p><a href="/#cursos" class="btn-primary-sm">Explorar cursos</a></div>';
+    return;
+  }
+  grid.innerHTML = courses.map(c => `
+    <div class="my-course-card" onclick="loadCourseActivities(${c.id}, '${c.title}')">
+      <div class="mcc-icon"><i class="ti ${c.icon}"></i></div>
+      <div class="mcc-info">
+        <div class="mcc-title">${c.title}</div>
+        <div class="mcc-level">${c.level} · ${c.modules} módulos</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${c.progress}%"></div>
+        </div>
+        <div class="mcc-progress">${c.progress}% completado</div>
+      </div>
+      <i class="ti ti-chevron-right mcc-arrow"></i>
+    </div>
+  `).join('');
+}
+
+async function loadCourseActivities(courseId, courseName) {
+  switchTab('actividades', document.querySelector('[data-tab="actividades"]'));
+  document.getElementById('activitiesList').innerHTML = '<div class="loading-spin"><i class="ti ti-loader ti-spin"></i></div>';
+  const res = await fetch(`/api/courses/${courseId}/modules`);
+  const modules = await res.json();
+  let html = `<div class="course-breadcrumb"><i class="ti ti-book-2"></i> ${courseName}</div>`;
+  modules.forEach(m => {
+    html += `<div class="module-block">
+      <div class="module-title"><i class="ti ti-folder"></i> ${m.title}</div>`;
+    if (m.activities.length) {
+      m.activities.forEach(a => {
+        const statusClass = a.submitted ? 'submitted' : 'pending';
+        const statusIcon = a.submitted ? 'ti-circle-check' : 'ti-circle';
+        html += `<div class="activity-row ${statusClass}" onclick="openActivity(${a.id})">
+          <i class="ti ${statusIcon} act-status"></i>
+          <div class="act-info">
+            <div class="act-title">${a.title}</div>
+            <div class="act-meta">${typeLabel(a.type)} · ${a.max_score} pts</div>
+          </div>
+          <div class="act-score">${a.score !== null ? a.score + ' pts' : ''}</div>
+          <i class="ti ti-chevron-right act-arrow"></i>
+        </div>`;
+      });
+    } else {
+      html += '<div class="empty-module">Sin actividades aún</div>';
+    }
+    if (m.materials.length) {
+      html += `<div class="materials-row">`;
+      m.materials.forEach(mat => {
+        html += `<a href="${mat.path}" target="_blank" class="material-chip">
+          <i class="ti ${fileIcon(mat.type)}"></i> ${mat.title}
+        </a>`;
+      });
+      html += `</div>`;
+    }
+    html += '</div>';
+  });
+  document.getElementById('activitiesList').innerHTML = html;
+}
+
+function typeLabel(t) {
+  return {multiple_choice:'Opción múltiple', code:'Código', quiz:'Quiz', text:'Texto'}[t] || t;
+}
+function fileIcon(t) {
+  return {pdf:'ti-file-type-pdf', py:'ti-brand-python', docx:'ti-file-type-doc', pptx:'ti-presentation', jpg:'ti-photo', png:'ti-photo', mp4:'ti-video'}[t] || 'ti-file';
+}
+
+async function openActivity(aid) {
+  document.getElementById('activityModal').style.display = 'flex';
+  document.getElementById('activityModalContent').innerHTML = '<div class="loading-spin"><i class="ti ti-loader ti-spin"></i></div>';
+  const res = await fetch(`/api/activities/${aid}`);
+  const act = await res.json();
+  renderActivityModal(act);
+}
+
+function renderActivityModal(act) {
+  let html = `<h2 class="modal-title">${act.title}</h2>
+  <p class="modal-desc">${act.description || ''}</p>`;
+
+  if (act.type === 'multiple_choice') {
+    html += `<form id="quizForm">`;
+    act.content.questions?.forEach((q, i) => {
+      html += `<div class="quiz-question">
+        <div class="q-text">${i+1}. ${q.text}</div>
+        <div class="q-options">`;
+      q.options.forEach(opt => {
+        html += `<label class="q-option">
+          <input type="radio" name="q_${q.id}" value="${opt}"> ${opt}
+        </label>`;
+      });
+      html += `</div></div>`;
+    });
+    html += `</form>
+    <div id="quizResult"></div>
+    <button class="btn-primary-sm" onclick="submitQuiz(${act.id}, ${JSON.stringify(act.content.questions).replace(/"/g,'&quot;')})">
+      <i class="ti ti-send"></i> Enviar respuestas
+    </button>`;
+  }
+
+  else if (act.type === 'code') {
+    html += `<div class="code-task-desc">${act.content.instructions || 'Escribe tu solución en Python:'}</div>
+    <textarea id="codeAnswer" class="code-textarea" placeholder="# Escribe tu código aquí...">${act.content.starter_code || ''}</textarea>
+    <div id="codeResult"></div>
+    <button class="btn-primary-sm" onclick="submitCode(${act.id})">
+      <i class="ti ti-send"></i> Enviar código para revisión IA
+    </button>`;
+  }
+
+  document.getElementById('activityModalContent').innerHTML = html;
+}
+
+async function submitQuiz(aid, questions) {
+  const answers = {};
+  questions.forEach(q => {
+    const sel = document.querySelector(`input[name="q_${q.id}"]:checked`);
+    answers[q.id] = sel ? sel.value : null;
+  });
+  const res = await fetch(`/api/activities/${aid}/submit`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({answers})
+  });
+  const data = await res.json();
+  document.getElementById('quizResult').innerHTML = `
+    <div class="result-box ${data.score >= 70 ? 'success' : 'warning'}">
+      <i class="ti ${data.score >= 70 ? 'ti-circle-check' : 'ti-alert-circle'}"></i>
+      <strong>Calificación: ${data.score}/100</strong><br>
+      ${data.feedback}
+    </div>`;
+  loadMyCourses();
+}
+
+async function submitCode(aid) {
+  const code = document.getElementById('codeAnswer').value;
+  if (!code.trim()) return;
+  const btn = document.querySelector('.btn-primary-sm');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader ti-spin"></i> Revisando con IA...';
+  document.getElementById('codeResult').innerHTML = '<div class="ai-reviewing"><i class="ti ti-robot"></i> La IA está revisando tu código...</div>';
+
+  // Llamada directa a la API de Anthropic (configura tu API key en el servidor)
+  const res = await fetch('/api/activities/' + aid + '/submit', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({answers: {code: code}})
+  });
+  const data = await res.json();
+
+  // Solicitar revisión de IA desde frontend (requiere proxy en backend)
+  const reviewRes = await fetch('/api/ai-review', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({activity_id: aid, code: code})
+  });
+  if (reviewRes.ok) {
+    const review = await reviewRes.json();
+    document.getElementById('codeResult').innerHTML = `
+      <div class="result-box ai">
+        <div class="ai-header"><i class="ti ti-robot"></i> <strong>Revisión de IA</strong></div>
+        <div class="ai-feedback">${review.feedback}</div>
+        ${review.score ? '<div class="ai-score">Puntuación estimada: ' + review.score + '/100</div>' : ''}
+      </div>`;
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-check"></i> Enviado';
+}
+
+function closeActivityModal() {
+  document.getElementById('activityModal').style.display = 'none';
+}
+
+// ── CHAT ──
+
+async function loadChatContacts() {
+  const res = await fetch('/api/chat/contacts');
+  const contacts = await res.json();
+  const el = document.getElementById('chatContacts');
+  el.innerHTML = '<div class="chat-contacts-title">Contactos</div>';
+  contacts.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'chat-contact';
+    div.dataset.id = c.id;
+    div.innerHTML = `<div class="chat-avatar">${c.initials}</div>
+      <div class="chat-contact-info">
+        <div class="chat-contact-name">${c.name}</div>
+        <div class="chat-contact-role">${c.role === 'admin' ? 'Maestro' : 'Alumno'}</div>
+      </div>`;
+    div.onclick = () => openChat(c.id, c.name, c.initials, div);
+    el.appendChild(div);
+  });
+}
+
+async function openChat(userId, name, initials, el) {
+  document.querySelectorAll('.chat-contact').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentChatContact = userId;
+  if (chatPollInterval) clearInterval(chatPollInterval);
+
+  const win = document.getElementById('chatWindow');
+  win.innerHTML = `
+    <div class="chat-win-header">
+      <div class="chat-avatar sm">${initials}</div>
+      <div><strong>${name}</strong></div>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter') sendMsg()">
+      <button class="chat-send-btn" onclick="sendMsg()"><i class="ti ti-send"></i></button>
+    </div>`;
+
+  loadMessages(userId);
+  chatPollInterval = setInterval(() => loadMessages(userId), 5000);
+}
+
+async function loadMessages(userId) {
+  const res = await fetch(`/api/chat/messages/${userId}`);
+  const messages = await res.json();
+  const el = document.getElementById('chatMessages');
+  if (!el) return;
+  el.innerHTML = messages.map(m => `
+    <div class="chat-msg ${m.is_mine ? 'mine' : 'theirs'}">
+      <div class="chat-bubble">${m.message}</div>
+      <div class="chat-time">${m.sent_at}</div>
+    </div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendMsg() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg || !currentChatContact) return;
+  input.value = '';
+  await fetch('/api/chat/send', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({recipient_id: currentChatContact, message: msg})
+  });
+  loadMessages(currentChatContact);
+}
+
+async function checkUnread() {
+  const res = await fetch('/api/chat/unread');
+  const data = await res.json();
+  const badge = document.getElementById('unreadBadge');
+  badge.style.display = data.count > 0 ? 'inline' : 'none';
+  badge.textContent = data.count;
+}
+
+init();
+</script>
+{% endblock %}
